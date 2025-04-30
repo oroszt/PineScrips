@@ -280,3 +280,139 @@ alertcondition(ta.crossover(close, sslExit), title='Exit Sell', message='Exit Se
 alertcondition(ta.crossover(sslExit, close), title='Exit Buy', message='Exit Buy Alert.')
 alertcondition(ta.crossover(close, upperk), title='Baseline Buy Entry', message='Base Buy Alert.')
 alertcondition(ta.crossover(lowerk, close), title='Baseline Sell Entry', message='Base Sell Alert.')
+
+
+//Table part
+// Időkeretek definíciója
+var timeframe5 = "5"
+var timeframe15 = "15"
+var timeframe30 = "30"
+var timeframe1h = "60"
+var timeframe4h = "240"
+var timeframe1d = "D"
+
+// Indikátor paraméterek
+rsiLength = input.int(14, "RSI Periódus", minval=1)
+macdFast = input.int(12, "MACD Gyors", minval=1)
+macdSlow = input.int(26, "MACD Lassú", minval=1)
+macdSignal = input.int(9, "MACD Jelzés", minval=1)
+adxLength = input.int(14, "ADX Periódus", minval=1)
+
+// RSI számítása különböző időkeretekben
+rsi5 = request.security(syminfo.tickerid, timeframe5, ta.rsi(close, rsiLength))
+rsi15 = request.security(syminfo.tickerid, timeframe15, ta.rsi(close, rsiLength))
+rsi30 = request.security(syminfo.tickerid, timeframe30, ta.rsi(close, rsiLength))
+rsi1h = request.security(syminfo.tickerid, timeframe1h, ta.rsi(close, rsiLength))
+rsi4h = request.security(syminfo.tickerid, timeframe4h, ta.rsi(close, rsiLength))
+rsi1d = request.security(syminfo.tickerid, timeframe1d, ta.rsi(close, rsiLength))
+
+// MACD számítása különböző időkeretekben
+[macd5, signal5, hist5] = request.security(syminfo.tickerid, timeframe5, ta.macd(close, macdFast, macdSlow, macdSignal))
+[macd15, signal15, hist15] = request.security(syminfo.tickerid, timeframe15, ta.macd(close, macdFast, macdSlow, macdSignal))
+[macd30, signal30, hist30] = request.security(syminfo.tickerid, timeframe30, ta.macd(close, macdFast, macdSlow, macdSignal))
+[macd1h, signal1h, hist1h] = request.security(syminfo.tickerid, timeframe1h, ta.macd(close, macdFast, macdSlow, macdSignal))
+[macd4h, signal4h, hist4h] = request.security(syminfo.tickerid, timeframe4h, ta.macd(close, macdFast, macdSlow, macdSignal))
+[macd1d, signal1d, hist1d] = request.security(syminfo.tickerid, timeframe1d, ta.macd(close, macdFast, macdSlow, macdSignal))
+
+// ADX számítása különböző időkeretekben
+getDMI(len) =>
+    [diplus, diminus, adx] = ta.dmi(len, len)
+    adx
+
+adx5 = request.security(syminfo.tickerid, timeframe5, getDMI(adxLength))
+adx15 = request.security(syminfo.tickerid, timeframe15, getDMI(adxLength))
+adx30 = request.security(syminfo.tickerid, timeframe30, getDMI(adxLength))
+adx1h = request.security(syminfo.tickerid, timeframe1h, getDMI(adxLength))
+adx4h = request.security(syminfo.tickerid, timeframe4h, getDMI(adxLength))
+adx1d = request.security(syminfo.tickerid, timeframe1d, getDMI(adxLength))
+
+// Stochastic RSI számítása különböző időkeretekben
+stochRsi(src, length) =>
+    rsiValue = ta.rsi(src, length)
+    lowest = ta.lowest(rsiValue, length)
+    highest = ta.highest(rsiValue, length)
+    (rsiValue - lowest) / (highest - lowest) * 100
+
+stochRsi5 = request.security(syminfo.tickerid, timeframe5, stochRsi(close, rsiLength))
+stochRsi15 = request.security(syminfo.tickerid, timeframe15, stochRsi(close, rsiLength))
+stochRsi30 = request.security(syminfo.tickerid, timeframe30, stochRsi(close, rsiLength))
+stochRsi1h = request.security(syminfo.tickerid, timeframe1h, stochRsi(close, rsiLength))
+stochRsi4h = request.security(syminfo.tickerid, timeframe4h, stochRsi(close, rsiLength))
+stochRsi1d = request.security(syminfo.tickerid, timeframe1d, stochRsi(close, rsiLength))
+
+// Színek beállítása
+var color bullColor = color.green
+var color bearColor = color.red
+var color neutralColor = color.gray
+var color tableBackgroundColor = color.new(color.black, 70)
+var color tableBorderColor = color.new(color.white, 50)
+var color tableHeaderColor = color.new(color.blue, 70)
+
+// RSI szín meghatározása az érték alapján
+rsiColor(rsiValue) =>
+    rsiValue >= 70 ? bearColor : rsiValue <= 30 ? bullColor : neutralColor
+
+// MACD szín meghatározása az érték alapján
+macdColor(macdValue, signalValue) =>
+    macdValue > signalValue ? bullColor : macdValue < signalValue ? bearColor : neutralColor
+
+// ADX szín meghatározása az érték alapján (30 felett erős trend)
+adxColor(adxValue) =>
+    adxValue >= 30 ? bullColor : adxValue >= 20 ? color.orange : neutralColor
+
+// Stochastic RSI szín meghatározása az érték alapján
+stochRsiColor(stochRsiValue) =>
+    stochRsiValue >= 80 ? bearColor : stochRsiValue <= 20 ? bullColor : neutralColor
+
+// Tábla pozíció
+tablePosition = input.string("bottom_right", "Tábla pozíció", options=["top_left", "top_right", "bottom_left", "bottom_right", "middle_left", "middle_right"])
+
+// Tábla létrehozása
+var table indTable = table.new(position = tablePosition, columns = 7, rows = 5, bgcolor = tableBackgroundColor, border_width = 1, border_color = tableBorderColor)
+
+// Tábla frissítése minden tick esetén
+if barstate.islast
+    // Fejléc beállítása
+    table.cell(indTable, 0, 0, "Indikátor", bgcolor = tableHeaderColor, text_color = color.white)
+    table.cell(indTable, 1, 0, "5m", bgcolor = tableHeaderColor, text_color = color.white)
+    table.cell(indTable, 2, 0, "15m", bgcolor = tableHeaderColor, text_color = color.white)
+    table.cell(indTable, 3, 0, "30m", bgcolor = tableHeaderColor, text_color = color.white)
+    table.cell(indTable, 4, 0, "1h", bgcolor = tableHeaderColor, text_color = color.white)
+    table.cell(indTable, 5, 0, "4h", bgcolor = tableHeaderColor, text_color = color.white)
+    table.cell(indTable, 6, 0, "1d", bgcolor = tableHeaderColor, text_color = color.white)
+    
+    // RSI értékek
+    table.cell(indTable, 0, 1, "RSI (0-100)", text_color = color.white)
+    table.cell(indTable, 1, 1, str.tostring(math.round(rsi5, 1)), text_color = rsiColor(rsi5))
+    table.cell(indTable, 2, 1, str.tostring(math.round(rsi15, 1)), text_color = rsiColor(rsi15))
+    table.cell(indTable, 3, 1, str.tostring(math.round(rsi30, 1)), text_color = rsiColor(rsi30))
+    table.cell(indTable, 4, 1, str.tostring(math.round(rsi1h, 1)), text_color = rsiColor(rsi1h))
+    table.cell(indTable, 5, 1, str.tostring(math.round(rsi4h, 1)), text_color = rsiColor(rsi4h))
+    table.cell(indTable, 6, 1, str.tostring(math.round(rsi1d, 1)), text_color = rsiColor(rsi1d))
+    
+    // Stochastic RSI értékek
+    table.cell(indTable, 0, 2, "Stoch RSI (0-100)", text_color = color.white)
+    table.cell(indTable, 1, 2, str.tostring(math.round(stochRsi5, 1)), text_color = stochRsiColor(stochRsi5))
+    table.cell(indTable, 2, 2, str.tostring(math.round(stochRsi15, 1)), text_color = stochRsiColor(stochRsi15))
+    table.cell(indTable, 3, 2, str.tostring(math.round(stochRsi30, 1)), text_color = stochRsiColor(stochRsi30))
+    table.cell(indTable, 4, 2, str.tostring(math.round(stochRsi1h, 1)), text_color = stochRsiColor(stochRsi1h))
+    table.cell(indTable, 5, 2, str.tostring(math.round(stochRsi4h, 1)), text_color = stochRsiColor(stochRsi4h))
+    table.cell(indTable, 6, 2, str.tostring(math.round(stochRsi1d, 1)), text_color = stochRsiColor(stochRsi1d))
+    
+    // MACD értékek
+    table.cell(indTable, 0, 3, "MACD (-∞ to ∞)", text_color = color.white)
+    table.cell(indTable, 1, 3, str.tostring(math.round(macd5, 3)), text_color = macdColor(macd5, signal5))
+    table.cell(indTable, 2, 3, str.tostring(math.round(macd15, 3)), text_color = macdColor(macd15, signal15))
+    table.cell(indTable, 3, 3, str.tostring(math.round(macd30, 3)), text_color = macdColor(macd30, signal30))
+    table.cell(indTable, 4, 3, str.tostring(math.round(macd1h, 3)), text_color = macdColor(macd1h, signal1h))
+    table.cell(indTable, 5, 3, str.tostring(math.round(macd4h, 3)), text_color = macdColor(macd4h, signal4h))
+    table.cell(indTable, 6, 3, str.tostring(math.round(macd1d, 3)), text_color = macdColor(macd1d, signal1d))
+    
+    // ADX értékek
+    table.cell(indTable, 0, 4, "ADX (0-100+)", text_color = color.white)
+    table.cell(indTable, 1, 4, str.tostring(math.round(adx5, 1)), text_color = adxColor(adx5))
+    table.cell(indTable, 2, 4, str.tostring(math.round(adx15, 1)), text_color = adxColor(adx15))
+    table.cell(indTable, 3, 4, str.tostring(math.round(adx30, 1)), text_color = adxColor(adx30))
+    table.cell(indTable, 4, 4, str.tostring(math.round(adx1h, 1)), text_color = adxColor(adx1h))
+    table.cell(indTable, 5, 4, str.tostring(math.round(adx4h, 1)), text_color = adxColor(adx4h))
+    table.cell(indTable, 6, 4, str.tostring(math.round(adx1d, 1)), text_color = adxColor(adx1d))
