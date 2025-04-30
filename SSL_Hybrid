@@ -416,3 +416,74 @@ if barstate.islast
     table.cell(indTable, 4, 4, str.tostring(math.round(adx1h, 1)), text_color = adxColor(adx1h))
     table.cell(indTable, 5, 4, str.tostring(math.round(adx4h, 1)), text_color = adxColor(adx4h))
     table.cell(indTable, 6, 4, str.tostring(math.round(adx1d, 1)), text_color = adxColor(adx1d))
+
+//Signal Table
+// --- Funkció: Adatok lekérése adott időtávon ---
+getData(tf) =>
+    ema20 = request.security(syminfo.tickerid, tf, ta.ema(close, 20))
+    ema50 = request.security(syminfo.tickerid, tf, ta.ema(close, 50))
+    rsiVal = request.security(syminfo.tickerid, tf, ta.rsi(close, 14))
+    
+    // Helyes ADX lekérése ta.dmi() segítségével
+    [plusDI, minusDI, adxVal] = request.security(syminfo.tickerid, tf, ta.dmi(14, 14))
+
+    trend = ema20 > ema50 ? "Bullish" : ema20 < ema50 ? "Bearish" : "Neutral"
+    rsiState = rsiVal > 70 ? "Overbought" : rsiVal < 30 ? "Oversold" : "Normal"
+    [trend, rsiState, adxVal]
+
+// --- Időablakok és címkék tömbként ---
+var string[] tfs = array.new_string()
+var string[] labels = array.new_string()
+
+if bar_index == 0
+    array.push(tfs, "5")
+    array.push(tfs, "15")
+    array.push(tfs, "30")
+    array.push(tfs, "60")
+    array.push(tfs, "240")
+    array.push(tfs, "D")
+
+    array.push(labels, "5m")
+    array.push(labels, "15m")
+    array.push(labels, "30m")
+    array.push(labels, "1h")
+    array.push(labels, "4h")
+    array.push(labels, "1d")
+
+// --- Táblázat létrehozása ---
+var table t = table.new(position.top_right, 5, 7, border_width = 1)
+
+if bar_index == 0
+    table.cell(t, 0, 0, "TF", text_color=color.white, bgcolor=color.gray)
+    table.cell(t, 1, 0, "Trend", text_color=color.white, bgcolor=color.gray)
+    table.cell(t, 2, 0, "RSI", text_color=color.white, bgcolor=color.gray)
+    table.cell(t, 3, 0, "ADX", text_color=color.white, bgcolor=color.gray)
+    table.cell(t, 4, 0, "Signal", text_color=color.white, bgcolor=color.gray)
+
+// --- Feltöltés ciklusban ---
+var int strongTrendCount = 0
+strongTrendCount := 0
+
+for i = 0 to array.size(tfs) - 1
+    tf = array.get(tfs, i)
+    label = array.get(labels, i)
+
+    [trend, rsiState, adx] = getData(tf)
+
+    trendColor = trend == "Bullish" ? color.green : trend == "Bearish" ? color.red : color.gray
+    rsiColor = rsiState == "Overbought" ? color.orange : rsiState == "Oversold" ? color.teal : color.gray
+    adxColor = adx >= 40 ? color.green : adx >= 20 ? color.orange : color.red
+
+    signal = (trend == "Bullish" and adx >= 25) ? "▲ Buy" :
+             (trend == "Bearish" and adx >= 25) ? "▼ Sell" : ""
+
+    if signal != ""
+        strongTrendCount += 1
+
+    table.cell(t, 0, i + 1, label, text_color=color.white)
+    table.cell(t, 1, i + 1, trend, text_color=trendColor)
+    table.cell(t, 2, i + 1, rsiState, text_color=rsiColor)
+    table.cell(t, 3, i + 1, str.tostring(adx, "#.##"), text_color=adxColor)
+    table.cell(t, 4, i + 1, signal, text_color=color.white)
+
+
