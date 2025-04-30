@@ -238,10 +238,10 @@ var label sl_label_long = na
 var label sl_label_short = na
 
 if base_cross_Long
-    sl_label_long := label.new(x=bar_index, y=low - atr_slen * 0.5, text="SL: " + tostring(sl_value_long, "#.##"), style=label.style_label_up, color=color.red, textcolor=color.white, size=size.small)
+    sl_label_long := label.new(x=bar_index, y=low - atr_slen * 0.5, text="SL: " + tostring(sl_value_long, "#.####"), style=label.style_label_up, color=color.red, textcolor=color.white, size=size.small)
 
 if base_cross_Short
-    sl_label_short := label.new(x=bar_index, y=high + atr_slen * 0.5, text="SL: " + tostring(sl_value_short, "#.##"), style=label.style_label_down, color=color.red, textcolor=color.white, size=size.small)
+    sl_label_short := label.new(x=bar_index, y=high + atr_slen * 0.5, text="SL: " + tostring(sl_value_short, "#.####"), style=label.style_label_down, color=color.red, textcolor=color.white, size=size.small)
 
 
 
