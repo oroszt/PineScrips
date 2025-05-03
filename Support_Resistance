@@ -1,0 +1,122 @@
+//@version=5
+indicator("Support/Resistance 1H / 4H / 1D / 1W - Stabil szintek és érintések", overlay=true)
+
+show1h = input.bool(true, "Mutassa az 1H szinteket")
+show4h = input.bool(true, "Mutassa a 4H szinteket")
+show1d = input.bool(true, "Mutassa az 1D szinteket")
+show1w = input.bool(true, "Mutassa a heti (1W) szinteket")
+
+length = input.int(50, "Szint számítás hossza", minval=5)
+checkBars = input.int(100, "Vizsgált gyertyák száma érintéshez")
+tolerance = input.float(0.002, "Tolerancia (pl. 0.002 = 0.2%)", step=0.0001)
+lineWidth = 1
+
+// Szintek lekérése adott TF-en
+getLevels(tf) =>
+    hh = request.security(syminfo.tickerid, tf, ta.highest(high, length))
+    ll = request.security(syminfo.tickerid, tf, ta.lowest(low, length))
+    [hh, ll]
+
+// Szintek TF-enként
+[res1h, sup1h] = getLevels("60")
+[res4h, sup4h] = getLevels("240")
+[res1d, sup1d] = getLevels("D")
+[res1w, sup1w] = getLevels("W")
+
+// Érintésszámítás csak az aktuális időkereten
+countTouches(level, tf, isResistance) =>
+    float touches = na
+    if timeframe.period == tf
+        touches := 0.0
+        priceSeries = isResistance ? high : low
+        for i = 0 to checkBars - 1
+            price = priceSeries[i]
+            diff = math.abs(price - level) / level
+            if diff <= tolerance
+                touches += 1
+    touches
+
+// Érintésszámok
+res1hTouches = countTouches(res1h, "60", true)
+sup1hTouches = countTouches(sup1h, "60", false)
+res4hTouches = countTouches(res4h, "240", true)
+sup4hTouches = countTouches(sup4h, "240", false)
+res1dTouches = countTouches(res1d, "D", true)
+sup1dTouches = countTouches(sup1d, "D", false)
+res1wTouches = countTouches(res1w, "W", true)
+sup1wTouches = countTouches(sup1w, "W", false)
+
+// Vonalhossz és címke hely
+x1 = bar_index - 100
+x2 = bar_index + 10
+
+// Címkefelirat generálása
+getLabelText(tf, currTF, prefix, level, touches, isRes) =>
+    isCurrentTF = (tf == currTF)
+    title = prefix + (isRes ? " Ellenállás: " : " Támasz: ")
+    priceStr = str.tostring(level, format.mintick)
+    touchStr = isCurrentTF ? (" (" + str.tostring(touches, "#") + " érintés)") : ""
+    title + priceStr + touchStr
+
+// Függvény a szint és címke kirajzolására
+drawLevel(show, tf, res, sup, resTouches, supTouches, labelPrefix, line resLine, line supLine, label resLabel, label supLabel) =>
+    if show
+        line.set_xy1(resLine, x1, res)
+        line.set_xy2(resLine, x2, res)
+        line.set_xy1(supLine, x1, sup)
+        line.set_xy2(supLine, x2, sup)
+        label.set_xy(resLabel, x2, res)
+        label.set_text(resLabel, getLabelText(tf, timeframe.period, labelPrefix, res, resTouches, true))
+        label.set_xy(supLabel, x2, sup)
+        label.set_text(supLabel, getLabelText(tf, timeframe.period, labelPrefix, sup, supTouches, false))
+
+// Globális vonalak és címkék
+var line resLine1h = na
+var line supLine1h = na
+var label resLabel1h = na
+var label supLabel1h = na
+var line resLine4h = na
+var line supLine4h = na
+var label resLabel4h = na
+var label supLabel4h = na
+var line resLine1d = na
+var line supLine1d = na
+var label resLabel1d = na
+var label supLabel1d = na
+var line resLine1w = na
+var line supLine1w = na
+var label resLabel1w = na
+var label supLabel1w = na
+
+// Kirajzolás
+if show1h
+    if na(resLine1h)
+        resLine1h := line.new(x1, res1h, x2, res1h, color=color.white, width=lineWidth)
+        supLine1h := line.new(x1, sup1h, x2, sup1h, color=color.white, width=lineWidth)
+        resLabel1h := label.new(x2, res1h, "", style=label.style_label_left, textcolor=color.black, size=size.small, color=color.white)
+        supLabel1h := label.new(x2, sup1h, "", style=label.style_label_left, textcolor=color.black, size=size.small, color=color.white)
+    drawLevel(show1h, "60", res1h, sup1h, res1hTouches, sup1hTouches, "1H", resLine1h, supLine1h, resLabel1h, supLabel1h)
+
+if show4h
+    if na(resLine4h)
+        resLine4h := line.new(x1, res4h, x2, res4h, color=color.white, width=lineWidth)
+        supLine4h := line.new(x1, sup4h, x2, sup4h, color=color.white, width=lineWidth)
+        resLabel4h := label.new(x2, res4h, "", style=label.style_label_left, textcolor=color.black, size=size.small, color=color.white)
+        supLabel4h := label.new(x2, sup4h, "", style=label.style_label_left, textcolor=color.black, size=size.small, color=color.white)
+    drawLevel(show4h, "240", res4h, sup4h, res4hTouches, sup4hTouches, "4H", resLine4h, supLine4h, resLabel4h, supLabel4h)
+
+if show1d
+    if na(resLine1d)
+        resLine1d := line.new(x1, res1d, x2, res1d, color=color.white, width=lineWidth)
+        supLine1d := line.new(x1, sup1d, x2, sup1d, color=color.white, width=lineWidth)
+        resLabel1d := label.new(x2, res1d, "", style=label.style_label_left, textcolor=color.black, size=size.small, color=color.white)
+        supLabel1d := label.new(x2, sup1d, "", style=label.style_label_left, textcolor=color.black, size=size.small, color=color.white)
+    drawLevel(show1d, "D", res1d, sup1d, res1dTouches, sup1dTouches, "1D", resLine1d, supLine1d, resLabel1d, supLabel1d)
+
+if show1w
+    if na(resLine1w)
+        resLine1w := line.new(x1, res1w, x2, res1w, color=color.white, width=lineWidth)
+        supLine1w := line.new(x1, sup1w, x2, sup1w, color=color.white, width=lineWidth)
+        resLabel1w := label.new(x2, res1w, "", style=label.style_label_left, textcolor=color.black, size=size.small, color=color.white)
+        supLabel1w := label.new(x2, sup1w, "", style=label.style_label_left, textcolor=color.black, size=size.small, color=color.white)
+    drawLevel(show1w, "W", res1w, sup1w, res1wTouches, sup1wTouches, "1W", resLine1w, supLine1w, resLabel1w, supLabel1w)
