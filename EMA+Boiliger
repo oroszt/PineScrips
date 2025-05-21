@@ -1,0 +1,262 @@
+//@version=5
+indicator("Multi-Timeframe Analysis with EMAs and Bollinger Bands", overlay=true)
+
+// Input parameters
+showTable = input.bool(true, "Show Table")
+tableLoc = input.string("bottom_right", "Table Location", options=["top_right", "top_left", "bottom_right", "bottom_left"])
+// Bollinger Bands parameters
+bbLength = input.int(20, "Bollinger Bands Length")
+bbMult = input.float(2.0, "Bollinger Bands Multiplier", step=0.1)
+showBollingerBands = input.bool(true, "Show Bollinger Bands")
+
+// Function to determine color based on RSI value
+rsiColor(value) =>
+    if value > 70
+        color.new(color.green, 0)  // Dark green
+    else if value > 50
+        color.new(color.green, 70) // Light green
+    else if value > 30
+        color.new(color.red, 70)   // Light red
+    else
+        color.new(color.red, 0)    // Dark red
+
+// Function to determine color based on ADX value
+adxColor(value) =>
+    if value > 50
+        color.new(color.green, 0)  // Strong trend - Dark green
+    else if value > 25
+        color.new(color.green, 70) // Medium trend - Light green
+    else
+        color.new(color.gray, 90)  // Weak trend - No significant color
+
+// Function to determine color based on CCI value
+cciColor(value) =>
+    if value > 200
+        color.new(color.green, 0)  // Dark green
+    else if value < -200
+        color.new(color.red, 0)    // Dark red
+    else
+        color.gray
+
+// Function to determine trend direction
+trendDirection(ema7, ema25, ema200) =>
+    string direction = ""
+    if ema7 > ema25 and ema25 > ema200
+        direction := "↑ Bullish"
+    else if ema7 < ema25 and ema25 < ema200
+        direction := "↓ Bearish"
+    else
+        direction := "→ Neutral"
+    direction
+
+// Function to calculate ADX (Separate function as requested)
+calculateADX(len) =>
+    // Calculate +DI and -DI
+    up = ta.change(high)
+    down = -ta.change(low)
+    
+    trueRange = math.max(high - low, math.abs(high - close[1]), math.abs(low - close[1]))
+    
+    plusDM = up > down and up > 0 ? up : 0
+    minusDM = down > up and down > 0 ? down : 0
+    
+    // Smoothing with Wilder's moving average
+    smoothLen = len
+    
+    // Smoothed True Range
+    smoothTR = 0.0
+    smoothTR := nz(smoothTR[1]) - (nz(smoothTR[1]) / smoothLen) + trueRange
+    
+    // Smoothed +DM and -DM
+    smoothPlusDM = 0.0
+    smoothMinusDM = 0.0
+    smoothPlusDM := nz(smoothPlusDM[1]) - (nz(smoothPlusDM[1]) / smoothLen) + plusDM
+    smoothMinusDM := nz(smoothMinusDM[1]) - (nz(smoothMinusDM[1]) / smoothLen) + minusDM
+    
+    // Calculate +DI and -DI
+    plusDI = smoothTR > 0 ? 100 * smoothPlusDM / smoothTR : 0
+    minusDI = smoothTR > 0 ? 100 * smoothMinusDM / smoothTR : 0
+    
+    // Calculate DX
+    dx = math.abs(plusDI - minusDI) / (plusDI + minusDI) * 100
+    
+    // Calculate ADX
+    adx = ta.sma(dx, smoothLen)
+    adx
+
+// Function to calculate Bollinger Bands
+calculateBB(length, mult) =>
+    basis = ta.sma(close, length)
+    dev = mult * ta.stdev(close, length)
+    upper = basis + dev
+    lower = basis - dev
+    [basis, upper, lower]
+
+// Current timeframe EMA calculations for the chart
+ema7 = ta.ema(close, 7)
+ema25 = ta.ema(close, 25)
+ema200 = ta.ema(close, 200)
+
+// Calculate Bollinger Bands
+[bbBasis, bbUpper, bbLower] = calculateBB(bbLength, bbMult)
+
+// Detect EMA crossovers
+ema_crossover_up = ta.crossover(ema7, ema25)
+ema_crossover_down = ta.crossunder(ema7, ema25)
+
+// Plot EMAs on chart
+plot(ema7, title="EMA 7", color=color.white, linewidth=1)
+plot(ema25, title="EMA 25", color=color.fuchsia, linewidth=2)
+plot(ema200, title="EMA 200", color=color.orange, linewidth=3)
+
+// Plot Bollinger Bands
+plot(showBollingerBands ? bbBasis : na, title="BB Middle", color=color.new(color.blue, 50), linewidth=1)
+plot(showBollingerBands ? bbUpper : na, title="BB Upper", color=color.new(color.blue, 50), linewidth=1)
+plot(showBollingerBands ? bbLower : na, title="BB Lower", color=color.new(color.blue, 50), linewidth=1)
+
+// Fill between the bands
+fill(plot(showBollingerBands ? bbUpper : na, display=display.none), plot(showBollingerBands ? bbLower : na, display=display.none), title="BB Background", color=color.new(color.blue, 95))
+
+// Plot crossover markers (white crosses) at EMA 7 and EMA 25 intersection points
+crossValue = ema_crossover_up or ema_crossover_down ? ema7 : na
+plot(crossValue, title="EMA Cross", style=plot.style_cross, linewidth=3, color=color.white)
+
+// Get data from different timeframes
+// 5 minutes
+rsi_5m = request.security(syminfo.tickerid, "5", ta.rsi(close, 14))
+adx_5m = request.security(syminfo.tickerid, "5", calculateADX(14))
+cci_5m = request.security(syminfo.tickerid, "5", ta.cci(close, 20))
+ema7_5m = request.security(syminfo.tickerid, "5", ta.ema(close, 7))
+ema25_5m = request.security(syminfo.tickerid, "5", ta.ema(close, 25))
+ema200_5m = request.security(syminfo.tickerid, "5", ta.ema(close, 200))
+trend_5m = request.security(syminfo.tickerid, "5", trendDirection(ema7_5m, ema25_5m, ema200_5m))
+[bbBasis_5m, bbUpper_5m, bbLower_5m] = request.security(syminfo.tickerid, "5", calculateBB(bbLength, bbMult))
+bbWidth_5m = (bbUpper_5m - bbLower_5m) / bbBasis_5m * 100
+
+// 15 minutes
+rsi_15m = request.security(syminfo.tickerid, "15", ta.rsi(close, 14))
+adx_15m = request.security(syminfo.tickerid, "15", calculateADX(14))
+cci_15m = request.security(syminfo.tickerid, "15", ta.cci(close, 20))
+ema7_15m = request.security(syminfo.tickerid, "15", ta.ema(close, 7))
+ema25_15m = request.security(syminfo.tickerid, "15", ta.ema(close, 25))
+ema200_15m = request.security(syminfo.tickerid, "15", ta.ema(close, 200))
+trend_15m = request.security(syminfo.tickerid, "15", trendDirection(ema7_15m, ema25_15m, ema200_15m))
+[bbBasis_15m, bbUpper_15m, bbLower_15m] = request.security(syminfo.tickerid, "15", calculateBB(bbLength, bbMult))
+bbWidth_15m = (bbUpper_15m - bbLower_15m) / bbBasis_15m * 100
+
+// 30 minutes
+rsi_30m = request.security(syminfo.tickerid, "30", ta.rsi(close, 14))
+adx_30m = request.security(syminfo.tickerid, "30", calculateADX(14))
+cci_30m = request.security(syminfo.tickerid, "30", ta.cci(close, 20))
+ema7_30m = request.security(syminfo.tickerid, "30", ta.ema(close, 7))
+ema25_30m = request.security(syminfo.tickerid, "30", ta.ema(close, 25))
+ema200_30m = request.security(syminfo.tickerid, "30", ta.ema(close, 200))
+trend_30m = request.security(syminfo.tickerid, "30", trendDirection(ema7_30m, ema25_30m, ema200_30m))
+[bbBasis_30m, bbUpper_30m, bbLower_30m] = request.security(syminfo.tickerid, "30", calculateBB(bbLength, bbMult))
+bbWidth_30m = (bbUpper_30m - bbLower_30m) / bbBasis_30m * 100
+
+// 1 hour
+rsi_1h = request.security(syminfo.tickerid, "60", ta.rsi(close, 14))
+adx_1h = request.security(syminfo.tickerid, "60", calculateADX(14))
+cci_1h = request.security(syminfo.tickerid, "60", ta.cci(close, 20))
+ema7_1h = request.security(syminfo.tickerid, "60", ta.ema(close, 7))
+ema25_1h = request.security(syminfo.tickerid, "60", ta.ema(close, 25))
+ema200_1h = request.security(syminfo.tickerid, "60", ta.ema(close, 200))
+trend_1h = request.security(syminfo.tickerid, "60", trendDirection(ema7_1h, ema25_1h, ema200_1h))
+[bbBasis_1h, bbUpper_1h, bbLower_1h] = request.security(syminfo.tickerid, "60", calculateBB(bbLength, bbMult))
+bbWidth_1h = (bbUpper_1h - bbLower_1h) / bbBasis_1h * 100
+
+// 4 hours
+rsi_4h = request.security(syminfo.tickerid, "240", ta.rsi(close, 14))
+adx_4h = request.security(syminfo.tickerid, "240", calculateADX(14))
+cci_4h = request.security(syminfo.tickerid, "240", ta.cci(close, 20))
+ema7_4h = request.security(syminfo.tickerid, "240", ta.ema(close, 7))
+ema25_4h = request.security(syminfo.tickerid, "240", ta.ema(close, 25))
+ema200_4h = request.security(syminfo.tickerid, "240", ta.ema(close, 200))
+trend_4h = request.security(syminfo.tickerid, "240", trendDirection(ema7_4h, ema25_4h, ema200_4h))
+[bbBasis_4h, bbUpper_4h, bbLower_4h] = request.security(syminfo.tickerid, "240", calculateBB(bbLength, bbMult))
+bbWidth_4h = (bbUpper_4h - bbLower_4h) / bbBasis_4h * 100
+
+// Function to determine color based on price position relative to Bollinger Bands
+bbPositionColor(close, upper, lower, basis) =>
+    if close > upper
+        color.new(color.green, 0)  // Above upper band - Strong bullish
+    else if close < lower
+        color.new(color.red, 0)    // Below lower band - Strong bearish
+    else if close > basis
+        color.new(color.green, 70) // Above middle band - Mild bullish
+    else
+        color.new(color.red, 70)   // Below middle band - Mild bearish
+
+// Function to determine color based on Bollinger Bands width
+bbWidthColor(width) =>
+    if width > 5
+        color.new(color.green, 0)  // Wide bands - High volatility
+    else if width > 3
+        color.new(color.green, 70) // Medium bands - Medium volatility
+    else
+        color.new(color.gray, 70)  // Narrow bands - Low volatility
+
+// Create table
+if showTable
+    var table t = table.new(tableLoc == "top_right" ? position.top_right : 
+                           tableLoc == "top_left" ? position.top_left : 
+                           tableLoc == "bottom_right" ? position.bottom_right : position.bottom_left, 
+                           7, 6, bgcolor = color.new(color.black, 70))
+    
+    // Headers
+    table.cell(t, 0, 0, "TF", bgcolor = color.new(color.gray, 20), text_color=color.white)
+    table.cell(t, 1, 0, "RSI", bgcolor = color.new(color.gray, 20), text_color=color.white)
+    table.cell(t, 2, 0, "ADX", bgcolor = color.new(color.gray, 20), text_color=color.white)
+    table.cell(t, 3, 0, "CCI", bgcolor = color.new(color.gray, 20), text_color=color.white)
+    table.cell(t, 4, 0, "BB Pos", bgcolor = color.new(color.gray, 20), text_color=color.white)
+    table.cell(t, 5, 0, "BB Width", bgcolor = color.new(color.gray, 20), text_color=color.white)
+    table.cell(t, 6, 0, "TREND", bgcolor = color.new(color.gray, 20), text_color=color.white)
+    
+    // 5min row
+    table.cell(t, 0, 1, "5m", bgcolor = color.new(color.gray, 10), text_color=color.white)
+    table.cell(t, 1, 1, str.tostring(math.round(rsi_5m, 1)), bgcolor = rsiColor(rsi_5m), text_color=color.white)
+    table.cell(t, 2, 1, str.tostring(math.round(adx_5m, 1)), bgcolor = adxColor(adx_5m), text_color=color.white)
+    table.cell(t, 3, 1, str.tostring(math.round(cci_5m, 1)), bgcolor = cciColor(cci_5m), text_color=color.white)
+    table.cell(t, 4, 1, str.tostring(math.round(close/bbBasis_5m*100-100, 1)) + "%", bgcolor = bbPositionColor(close, bbUpper_5m, bbLower_5m, bbBasis_5m), text_color=color.white)
+    table.cell(t, 5, 1, str.tostring(math.round(bbWidth_5m, 1)) + "%", bgcolor = bbWidthColor(bbWidth_5m), text_color=color.white)
+    table.cell(t, 6, 1, trend_5m, bgcolor = trend_5m == "↑ Bullish" ? color.new(color.green, 70) : 
+                                               trend_5m == "↓ Bearish" ? color.new(color.red, 70) : 
+                                               color.new(color.gray, 70), 
+                                               text_color=color.white)
+    
+    // 15min row
+    table.cell(t, 0, 2, "15m", bgcolor = color.new(color.gray, 10), text_color=color.white)
+    table.cell(t, 1, 2, str.tostring(math.round(rsi_15m, 1)), bgcolor = rsiColor(rsi_15m), text_color=color.white)
+    table.cell(t, 2, 2, str.tostring(math.round(adx_15m, 1)), bgcolor = adxColor(adx_15m), text_color=color.white)
+    table.cell(t, 3, 2, str.tostring(math.round(cci_15m, 1)), bgcolor = cciColor(cci_15m), text_color=color.white)
+    table.cell(t, 4, 2, str.tostring(math.round(close/bbBasis_15m*100-100, 1)) + "%", bgcolor = bbPositionColor(close, bbUpper_15m, bbLower_15m, bbBasis_15m), text_color=color.white)
+    table.cell(t, 5, 2, str.tostring(math.round(bbWidth_15m, 1)) + "%", bgcolor = bbWidthColor(bbWidth_15m), text_color=color.white)
+    table.cell(t, 6, 2, trend_15m, bgcolor = trend_15m == "↑ Bullish" ? color.new(color.green, 70) :     trend_15m == "↓ Bearish" ? color.new(color.red, 70) :     color.new(color.gray, 70),    text_color=color.white)
+    
+    // 30min row
+    table.cell(t, 0, 3, "30m", bgcolor = color.new(color.gray, 10), text_color=color.white)
+    table.cell(t, 1, 3, str.tostring(math.round(rsi_30m, 1)), bgcolor = rsiColor(rsi_30m), text_color=color.white)
+    table.cell(t, 2, 3, str.tostring(math.round(adx_30m, 1)), bgcolor = adxColor(adx_30m), text_color=color.white)
+    table.cell(t, 3, 3, str.tostring(math.round(cci_30m, 1)), bgcolor = cciColor(cci_30m), text_color=color.white)
+    table.cell(t, 4, 3, str.tostring(math.round(close/bbBasis_30m*100-100, 1)) + "%", bgcolor = bbPositionColor(close, bbUpper_30m, bbLower_30m, bbBasis_30m), text_color=color.white)
+    table.cell(t, 5, 3, str.tostring(math.round(bbWidth_30m, 1)) + "%", bgcolor = bbWidthColor(bbWidth_30m), text_color=color.white)
+    table.cell(t, 6, 3, trend_30m, bgcolor = trend_30m == "↑ Bullish" ? color.new(color.green, 70) :     trend_30m == "↓ Bearish" ? color.new(color.red, 70) :     color.new(color.gray, 70),     text_color=color.white)
+    
+    // 1h row
+    table.cell(t, 0, 4, "1h", bgcolor = color.new(color.gray, 10), text_color=color.white)
+    table.cell(t, 1, 4, str.tostring(math.round(rsi_1h, 1)), bgcolor = rsiColor(rsi_1h), text_color=color.white)
+    table.cell(t, 2, 4, str.tostring(math.round(adx_1h, 1)), bgcolor = adxColor(adx_1h), text_color=color.white)
+    table.cell(t, 3, 4, str.tostring(math.round(cci_1h, 1)), bgcolor = cciColor(cci_1h), text_color=color.white)
+    table.cell(t, 4, 4, str.tostring(math.round(close/bbBasis_1h*100-100, 1)) + "%", bgcolor = bbPositionColor(close, bbUpper_1h, bbLower_1h, bbBasis_1h), text_color=color.white)
+    table.cell(t, 5, 4, str.tostring(math.round(bbWidth_1h, 1)) + "%", bgcolor = bbWidthColor(bbWidth_1h), text_color=color.white)
+    table.cell(t, 6, 4, trend_1h, bgcolor = trend_1h == "↑ Bullish" ? color.new(color.green, 70) :   trend_1h == "↓ Bearish" ? color.new(color.red, 70) :   color.new(color.gray, 70),   text_color=color.white)
+    
+    // 4h row
+    table.cell(t, 0, 5, "4h", bgcolor = color.new(color.gray, 10), text_color=color.white)
+    table.cell(t, 1, 5, str.tostring(math.round(rsi_4h, 1)), bgcolor = rsiColor(rsi_4h), text_color=color.white)
+    table.cell(t, 2, 5, str.tostring(math.round(adx_4h, 1)), bgcolor = adxColor(adx_4h), text_color=color.white)
+    table.cell(t, 3, 5, str.tostring(math.round(cci_4h, 1)), bgcolor = cciColor(cci_4h), text_color=color.white)
+    table.cell(t, 4, 5, str.tostring(math.round(close/bbBasis_4h*100-100, 1)) + "%", bgcolor = bbPositionColor(close, bbUpper_4h, bbLower_4h, bbBasis_4h), text_color=color.white)
+    table.cell(t, 5, 5, str.tostring(math.round(bbWidth_4h, 1)) + "%", bgcolor = bbWidthColor(bbWidth_4h), text_color=color.white)
+    table.cell(t, 6, 5, trend_4h, bgcolor = trend_4h == "↑ Bullish" ? color.new(color.green, 70) :   trend_4h == "↓ Bearish" ? color.new(color.red, 70) :   color.new(color.gray, 70),  text_color=color.white)
