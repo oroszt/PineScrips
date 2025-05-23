@@ -1,5 +1,5 @@
-//@version=5
-indicator("Multi-Timeframe Analysis with EMAs and Bollinger Bands", overlay=true)
+//@version=6
+indicator("Multi-Timeframe Analysis with EMAs, Bollinger Bands and ATR", overlay=true)
 
 // Input parameters
 showTable = input.bool(true, "Show Table")
@@ -8,6 +8,8 @@ tableLoc = input.string("bottom_right", "Table Location", options=["top_right", 
 bbLength = input.int(20, "Bollinger Bands Length")
 bbMult = input.float(2.0, "Bollinger Bands Multiplier", step=0.1)
 showBollingerBands = input.bool(true, "Show Bollinger Bands")
+// ATR parameters
+atrLength = input.int(14, "ATR Length")
 
 // Function to determine color based on RSI value
 rsiColor(value) =>
@@ -37,6 +39,18 @@ cciColor(value) =>
         color.new(color.red, 0)    // Dark red
     else
         color.gray
+
+// Function to determine color based on ATR (relative to current price)
+atrColor(atrValue, price) =>
+    atrPercent = (atrValue / price) * 100
+    if atrPercent > 3
+        color.new(color.red, 0)    // High volatility - Dark red
+    else if atrPercent > 2
+        color.new(color.orange, 0) // Medium-high volatility - Orange
+    else if atrPercent > 1
+        color.new(color.yellow, 0) // Medium volatility - Yellow
+    else
+        color.new(color.green, 70) // Low volatility - Light green
 
 // Function to determine trend direction
 trendDirection(ema7, ema25, ema200) =>
@@ -126,6 +140,8 @@ plot(crossValue, title="EMA Cross", style=plot.style_cross, linewidth=3, color=c
 rsi_5m = request.security(syminfo.tickerid, "5", ta.rsi(close, 14))
 adx_5m = request.security(syminfo.tickerid, "5", calculateADX(14))
 cci_5m = request.security(syminfo.tickerid, "5", ta.cci(close, 20))
+atr_5m = request.security(syminfo.tickerid, "5", ta.atr(atrLength))
+close_5m = request.security(syminfo.tickerid, "5", close)
 ema7_5m = request.security(syminfo.tickerid, "5", ta.ema(close, 7))
 ema25_5m = request.security(syminfo.tickerid, "5", ta.ema(close, 25))
 ema200_5m = request.security(syminfo.tickerid, "5", ta.ema(close, 200))
@@ -137,6 +153,8 @@ bbWidth_5m = (bbUpper_5m - bbLower_5m) / bbBasis_5m * 100
 rsi_15m = request.security(syminfo.tickerid, "15", ta.rsi(close, 14))
 adx_15m = request.security(syminfo.tickerid, "15", calculateADX(14))
 cci_15m = request.security(syminfo.tickerid, "15", ta.cci(close, 20))
+atr_15m = request.security(syminfo.tickerid, "15", ta.atr(atrLength))
+close_15m = request.security(syminfo.tickerid, "15", close)
 ema7_15m = request.security(syminfo.tickerid, "15", ta.ema(close, 7))
 ema25_15m = request.security(syminfo.tickerid, "15", ta.ema(close, 25))
 ema200_15m = request.security(syminfo.tickerid, "15", ta.ema(close, 200))
@@ -148,6 +166,8 @@ bbWidth_15m = (bbUpper_15m - bbLower_15m) / bbBasis_15m * 100
 rsi_30m = request.security(syminfo.tickerid, "30", ta.rsi(close, 14))
 adx_30m = request.security(syminfo.tickerid, "30", calculateADX(14))
 cci_30m = request.security(syminfo.tickerid, "30", ta.cci(close, 20))
+atr_30m = request.security(syminfo.tickerid, "30", ta.atr(atrLength))
+close_30m = request.security(syminfo.tickerid, "30", close)
 ema7_30m = request.security(syminfo.tickerid, "30", ta.ema(close, 7))
 ema25_30m = request.security(syminfo.tickerid, "30", ta.ema(close, 25))
 ema200_30m = request.security(syminfo.tickerid, "30", ta.ema(close, 200))
@@ -159,6 +179,8 @@ bbWidth_30m = (bbUpper_30m - bbLower_30m) / bbBasis_30m * 100
 rsi_1h = request.security(syminfo.tickerid, "60", ta.rsi(close, 14))
 adx_1h = request.security(syminfo.tickerid, "60", calculateADX(14))
 cci_1h = request.security(syminfo.tickerid, "60", ta.cci(close, 20))
+atr_1h = request.security(syminfo.tickerid, "60", ta.atr(atrLength))
+close_1h = request.security(syminfo.tickerid, "60", close)
 ema7_1h = request.security(syminfo.tickerid, "60", ta.ema(close, 7))
 ema25_1h = request.security(syminfo.tickerid, "60", ta.ema(close, 25))
 ema200_1h = request.security(syminfo.tickerid, "60", ta.ema(close, 200))
@@ -170,6 +192,8 @@ bbWidth_1h = (bbUpper_1h - bbLower_1h) / bbBasis_1h * 100
 rsi_4h = request.security(syminfo.tickerid, "240", ta.rsi(close, 14))
 adx_4h = request.security(syminfo.tickerid, "240", calculateADX(14))
 cci_4h = request.security(syminfo.tickerid, "240", ta.cci(close, 20))
+atr_4h = request.security(syminfo.tickerid, "240", ta.atr(atrLength))
+close_4h = request.security(syminfo.tickerid, "240", close)
 ema7_4h = request.security(syminfo.tickerid, "240", ta.ema(close, 7))
 ema25_4h = request.security(syminfo.tickerid, "240", ta.ema(close, 25))
 ema200_4h = request.security(syminfo.tickerid, "240", ta.ema(close, 200))
@@ -202,25 +226,27 @@ if showTable
     var table t = table.new(tableLoc == "top_right" ? position.top_right : 
                            tableLoc == "top_left" ? position.top_left : 
                            tableLoc == "bottom_right" ? position.bottom_right : position.bottom_left, 
-                           7, 6, bgcolor = color.new(color.black, 70))
+                           8, 6, bgcolor = color.new(color.black, 70))
     
     // Headers
     table.cell(t, 0, 0, "TF", bgcolor = color.new(color.gray, 20), text_color=color.white)
     table.cell(t, 1, 0, "RSI", bgcolor = color.new(color.gray, 20), text_color=color.white)
     table.cell(t, 2, 0, "ADX", bgcolor = color.new(color.gray, 20), text_color=color.white)
     table.cell(t, 3, 0, "CCI", bgcolor = color.new(color.gray, 20), text_color=color.white)
-    table.cell(t, 4, 0, "BB Pos", bgcolor = color.new(color.gray, 20), text_color=color.white)
-    table.cell(t, 5, 0, "BB Width", bgcolor = color.new(color.gray, 20), text_color=color.white)
-    table.cell(t, 6, 0, "TREND", bgcolor = color.new(color.gray, 20), text_color=color.white)
+    table.cell(t, 4, 0, "ATR", bgcolor = color.new(color.gray, 20), text_color=color.white)
+    table.cell(t, 5, 0, "BB Pos", bgcolor = color.new(color.gray, 20), text_color=color.white)
+    table.cell(t, 6, 0, "BB Width", bgcolor = color.new(color.gray, 20), text_color=color.white)
+    table.cell(t, 7, 0, "TREND", bgcolor = color.new(color.gray, 20), text_color=color.white)
     
     // 5min row
     table.cell(t, 0, 1, "5m", bgcolor = color.new(color.gray, 10), text_color=color.white)
     table.cell(t, 1, 1, str.tostring(math.round(rsi_5m, 1)), bgcolor = rsiColor(rsi_5m), text_color=color.white)
     table.cell(t, 2, 1, str.tostring(math.round(adx_5m, 1)), bgcolor = adxColor(adx_5m), text_color=color.white)
     table.cell(t, 3, 1, str.tostring(math.round(cci_5m, 1)), bgcolor = cciColor(cci_5m), text_color=color.white)
-    table.cell(t, 4, 1, str.tostring(math.round(close/bbBasis_5m*100-100, 1)) + "%", bgcolor = bbPositionColor(close, bbUpper_5m, bbLower_5m, bbBasis_5m), text_color=color.white)
-    table.cell(t, 5, 1, str.tostring(math.round(bbWidth_5m, 1)) + "%", bgcolor = bbWidthColor(bbWidth_5m), text_color=color.white)
-    table.cell(t, 6, 1, trend_5m, bgcolor = trend_5m == "↑ Bullish" ? color.new(color.green, 70) : 
+    table.cell(t, 4, 1, str.tostring(math.round(atr_5m, 6)) + " (" + str.tostring(math.round(atr_5m/close_5m*100, 2)) + "%)", bgcolor = atrColor(atr_5m, close_5m), text_color=color.white)
+    table.cell(t, 5, 1, str.tostring(math.round(close/bbBasis_5m*100-100, 1)) + "%", bgcolor = bbPositionColor(close, bbUpper_5m, bbLower_5m, bbBasis_5m), text_color=color.white)
+    table.cell(t, 6, 1, str.tostring(math.round(bbWidth_5m, 1)) + "%", bgcolor = bbWidthColor(bbWidth_5m), text_color=color.white)
+    table.cell(t, 7, 1, trend_5m, bgcolor = trend_5m == "↑ Bullish" ? color.new(color.green, 70) : 
                                                trend_5m == "↓ Bearish" ? color.new(color.red, 70) : 
                                                color.new(color.gray, 70), 
                                                text_color=color.white)
@@ -230,33 +256,37 @@ if showTable
     table.cell(t, 1, 2, str.tostring(math.round(rsi_15m, 1)), bgcolor = rsiColor(rsi_15m), text_color=color.white)
     table.cell(t, 2, 2, str.tostring(math.round(adx_15m, 1)), bgcolor = adxColor(adx_15m), text_color=color.white)
     table.cell(t, 3, 2, str.tostring(math.round(cci_15m, 1)), bgcolor = cciColor(cci_15m), text_color=color.white)
-    table.cell(t, 4, 2, str.tostring(math.round(close/bbBasis_15m*100-100, 1)) + "%", bgcolor = bbPositionColor(close, bbUpper_15m, bbLower_15m, bbBasis_15m), text_color=color.white)
-    table.cell(t, 5, 2, str.tostring(math.round(bbWidth_15m, 1)) + "%", bgcolor = bbWidthColor(bbWidth_15m), text_color=color.white)
-    table.cell(t, 6, 2, trend_15m, bgcolor = trend_15m == "↑ Bullish" ? color.new(color.green, 70) :     trend_15m == "↓ Bearish" ? color.new(color.red, 70) :     color.new(color.gray, 70),    text_color=color.white)
+    table.cell(t, 4, 2, str.tostring(math.round(atr_15m, 6)) + " (" + str.tostring(math.round(atr_15m/close_15m*100, 2)) + "%)", bgcolor = atrColor(atr_15m, close_15m), text_color=color.white)
+    table.cell(t, 5, 2, str.tostring(math.round(close/bbBasis_15m*100-100, 1)) + "%", bgcolor = bbPositionColor(close, bbUpper_15m, bbLower_15m, bbBasis_15m), text_color=color.white)
+    table.cell(t, 6, 2, str.tostring(math.round(bbWidth_15m, 1)) + "%", bgcolor = bbWidthColor(bbWidth_15m), text_color=color.white)
+    table.cell(t, 7, 2, trend_15m, bgcolor = trend_15m == "↑ Bullish" ? color.new(color.green, 70) :     trend_15m == "↓ Bearish" ? color.new(color.red, 70) :     color.new(color.gray, 70),    text_color=color.white)
     
     // 30min row
     table.cell(t, 0, 3, "30m", bgcolor = color.new(color.gray, 10), text_color=color.white)
     table.cell(t, 1, 3, str.tostring(math.round(rsi_30m, 1)), bgcolor = rsiColor(rsi_30m), text_color=color.white)
     table.cell(t, 2, 3, str.tostring(math.round(adx_30m, 1)), bgcolor = adxColor(adx_30m), text_color=color.white)
     table.cell(t, 3, 3, str.tostring(math.round(cci_30m, 1)), bgcolor = cciColor(cci_30m), text_color=color.white)
-    table.cell(t, 4, 3, str.tostring(math.round(close/bbBasis_30m*100-100, 1)) + "%", bgcolor = bbPositionColor(close, bbUpper_30m, bbLower_30m, bbBasis_30m), text_color=color.white)
-    table.cell(t, 5, 3, str.tostring(math.round(bbWidth_30m, 1)) + "%", bgcolor = bbWidthColor(bbWidth_30m), text_color=color.white)
-    table.cell(t, 6, 3, trend_30m, bgcolor = trend_30m == "↑ Bullish" ? color.new(color.green, 70) :     trend_30m == "↓ Bearish" ? color.new(color.red, 70) :     color.new(color.gray, 70),     text_color=color.white)
+    table.cell(t, 4, 3, str.tostring(math.round(atr_30m, 6)) + " (" + str.tostring(math.round(atr_30m/close_30m*100, 2)) + "%)", bgcolor = atrColor(atr_30m, close_30m), text_color=color.white)
+    table.cell(t, 5, 3, str.tostring(math.round(close/bbBasis_30m*100-100, 1)) + "%", bgcolor = bbPositionColor(close, bbUpper_30m, bbLower_30m, bbBasis_30m), text_color=color.white)
+    table.cell(t, 6, 3, str.tostring(math.round(bbWidth_30m, 1)) + "%", bgcolor = bbWidthColor(bbWidth_30m), text_color=color.white)
+    table.cell(t, 7, 3, trend_30m, bgcolor = trend_30m == "↑ Bullish" ? color.new(color.green, 70) :     trend_30m == "↓ Bearish" ? color.new(color.red, 70) :     color.new(color.gray, 70),     text_color=color.white)
     
     // 1h row
     table.cell(t, 0, 4, "1h", bgcolor = color.new(color.gray, 10), text_color=color.white)
     table.cell(t, 1, 4, str.tostring(math.round(rsi_1h, 1)), bgcolor = rsiColor(rsi_1h), text_color=color.white)
     table.cell(t, 2, 4, str.tostring(math.round(adx_1h, 1)), bgcolor = adxColor(adx_1h), text_color=color.white)
     table.cell(t, 3, 4, str.tostring(math.round(cci_1h, 1)), bgcolor = cciColor(cci_1h), text_color=color.white)
-    table.cell(t, 4, 4, str.tostring(math.round(close/bbBasis_1h*100-100, 1)) + "%", bgcolor = bbPositionColor(close, bbUpper_1h, bbLower_1h, bbBasis_1h), text_color=color.white)
-    table.cell(t, 5, 4, str.tostring(math.round(bbWidth_1h, 1)) + "%", bgcolor = bbWidthColor(bbWidth_1h), text_color=color.white)
-    table.cell(t, 6, 4, trend_1h, bgcolor = trend_1h == "↑ Bullish" ? color.new(color.green, 70) :   trend_1h == "↓ Bearish" ? color.new(color.red, 70) :   color.new(color.gray, 70),   text_color=color.white)
+    table.cell(t, 4, 4, str.tostring(math.round(atr_1h, 6)) + " (" + str.tostring(math.round(atr_1h/close_1h*100, 2)) + "%)", bgcolor = atrColor(atr_1h, close_1h), text_color=color.white)
+    table.cell(t, 5, 4, str.tostring(math.round(close/bbBasis_1h*100-100, 1)) + "%", bgcolor = bbPositionColor(close, bbUpper_1h, bbLower_1h, bbBasis_1h), text_color=color.white)
+    table.cell(t, 6, 4, str.tostring(math.round(bbWidth_1h, 1)) + "%", bgcolor = bbWidthColor(bbWidth_1h), text_color=color.white)
+    table.cell(t, 7, 4, trend_1h, bgcolor = trend_1h == "↑ Bullish" ? color.new(color.green, 70) :   trend_1h == "↓ Bearish" ? color.new(color.red, 70) :   color.new(color.gray, 70),   text_color=color.white)
     
     // 4h row
     table.cell(t, 0, 5, "4h", bgcolor = color.new(color.gray, 10), text_color=color.white)
     table.cell(t, 1, 5, str.tostring(math.round(rsi_4h, 1)), bgcolor = rsiColor(rsi_4h), text_color=color.white)
     table.cell(t, 2, 5, str.tostring(math.round(adx_4h, 1)), bgcolor = adxColor(adx_4h), text_color=color.white)
     table.cell(t, 3, 5, str.tostring(math.round(cci_4h, 1)), bgcolor = cciColor(cci_4h), text_color=color.white)
-    table.cell(t, 4, 5, str.tostring(math.round(close/bbBasis_4h*100-100, 1)) + "%", bgcolor = bbPositionColor(close, bbUpper_4h, bbLower_4h, bbBasis_4h), text_color=color.white)
-    table.cell(t, 5, 5, str.tostring(math.round(bbWidth_4h, 1)) + "%", bgcolor = bbWidthColor(bbWidth_4h), text_color=color.white)
-    table.cell(t, 6, 5, trend_4h, bgcolor = trend_4h == "↑ Bullish" ? color.new(color.green, 70) :   trend_4h == "↓ Bearish" ? color.new(color.red, 70) :   color.new(color.gray, 70),  text_color=color.white)
+    table.cell(t, 4, 5, str.tostring(math.round(atr_4h, 6)) + " (" + str.tostring(math.round(atr_4h/close_4h*100, 2)) + "%)", bgcolor = atrColor(atr_4h, close_4h), text_color=color.white)
+    table.cell(t, 5, 5, str.tostring(math.round(close/bbBasis_4h*100-100, 1)) + "%", bgcolor = bbPositionColor(close, bbUpper_4h, bbLower_4h, bbBasis_4h), text_color=color.white)
+    table.cell(t, 6, 5, str.tostring(math.round(bbWidth_4h, 1)) + "%", bgcolor = bbWidthColor(bbWidth_4h), text_color=color.white)
+    table.cell(t, 7, 5, trend_4h, bgcolor = trend_4h == "↑ Bullish" ? color.new(color.green, 70) :   trend_4h == "↓ Bearish" ? color.new(color.red, 70) :   color.new(color.gray, 70),  text_color=color.white)
