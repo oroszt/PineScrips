@@ -1,0 +1,18 @@
+//@version=5
+indicator("PI_Cycle_Top_Indicator", overlay=true)
+ 
+// Calculate the 111-day and 350-day moving averages
+ma111 = ta.sma(close, 111)
+ma350 = ta.sma(close, 350)
+ma350x2 = ma350 * 2
+ 
+// Plot the moving averages
+plot(ma111, title="111-Day MA", color=color.orange, linewidth=2)
+plot(ma350x2, title="350-Day MA x2", color=color.red, linewidth=2)
+ 
+// Signal when 111DMA crosses above 350DMA x2
+topSignal = ta.crossover(ma111, ma350x2)
+plotshape(topSignal, title="Top Signal", location=location.abovebar, color=color.red, style=shape.triangledown, size=size.small, text="Top?")
+ 
+// Optional: background color on signal
+bgcolor(topSignal ? color.new(color.red, 85) : na, title="Top Signal Background")
