@@ -301,3 +301,50 @@ p_bb_lower = plot(show_bb ? bb_lower : na, title="BB Lower", color=bb_color, lin
 
 fill(p_bb_upper, p_bb_lower, color=color.new(bb_color, 90))
 
+// ==== Inputok ====
+show_table = input.bool(true, title="Show Table")
+
+// RSI inputok
+rsi_length = input.int(14, "RSI Length", minval=2)
+rsi_overbought = input.int(70, "RSI Overbought Level")
+rsi_oversold = input.int(30, "RSI Oversold Level")
+rsi_ext_lookback = input.int(200, "RSI Extremes Lookback")
+
+// SMI inputok
+smi_length = input.int(14, "SMI Length")
+smi_smoothK = input.int(3, "SMI %K Smoothing")
+smi_smoothD = input.int(3, "SMI %D Smoothing")
+smi_overbought = input.int(40, "SMI Overbought")  // SMI tipikus: +/-40
+smi_oversold = input.int(-40, "SMI Oversold")
+smi_ext_lookback = input.int(200, "SMI Extremes Lookback")
+
+// ==== RSI számítása ====
+rsi_val = ta.rsi(close, rsi_length)
+rsi_color = rsi_val > rsi_overbought ? color.red : rsi_val < rsi_oversold ? color.green : color.white
+rsi_max = ta.highest(rsi_val, rsi_ext_lookback)
+rsi_min = ta.lowest(rsi_val, rsi_ext_lookback)
+
+// ==== OBV számítása ====
+obv_val = ta.cum((close - close[1] >= 0 ? 1 : -1) * volume)
+obv_color = obv_val > obv_val[1] ? color.green : color.red
+
+// ==== SMI számítása ====
+hh = ta.highest(high, smi_length)
+ll = ta.lowest(low, smi_length)
+mid = (hh + ll)/2
+diff = close - mid
+range2 = (hh - ll)/2
+smi_raw = range2 != 0 ? diff / range2 * 100 : 0
+smi_K = ta.sma(smi_raw, smi_smoothK)
+smi_D = ta.sma(smi_K, smi_smoothD)
+smi_max = ta.highest(smi_K, smi_ext_lookback)
+smi_min = ta.lowest(smi_K, smi_ext_lookback)
+smi_color = smi_K > smi_overbought ? color.red : smi_K < smi_oversold ? color.green : color.white
+
+// ==== Táblázat létrehozása ====
+var table stat_table = table.new(position.top_right, 1, 3, frame_color=color.gray, frame_width=1, border_width=1)
+
+if show_table
+    table.cell(stat_table, 0, 0, text="RSI: " + str.tostring(rsi_val, "#.##") + " (" + str.tostring(rsi_min, "#") + "-" + str.tostring(rsi_max, "#") + ")", text_color=rsi_color, bgcolor=color.new(color.black, 70))    
+    table.cell(stat_table, 0, 1, text="SMI: " + str.tostring(smi_K, "#.##") + " (" + str.tostring(smi_min, "#") + "-" + str.tostring(smi_max, "#") + ")", text_color=smi_color, bgcolor=color.new(color.black, 70))
+    table.cell(stat_table, 0, 2, text="OBV: " + str.tostring(obv_val, "#"), text_color=obv_color, bgcolor=color.new(color.black, 70))
