@@ -1,3 +1,4 @@
+
 //@version=6
 indicator("SSL Hybrid + SMA 20/50/200", overlay=true)
 
@@ -242,12 +243,12 @@ if base_cross_Short
 
 plotarrow(codiff, colorup=#00c3ff, colordown=#ff0062, title="Exit Arrows", maxheight=20, offset=0)
 
-p1 = plot(show_Baseline ? BBMC : na, color=color_bar, linewidth=4, title='MA Baseline')
+p1 = plot(show_Baseline ? BBMC : na, color=color_bar, linewidth=4, title='MA Baseline',  display=display.none)
 DownPlot = plot(show_SSL1 ? sslDown : na, title="SSL1", linewidth=3, color=color.new(color_ssl1, 10), display=display.none)
-barcolor(show_color_bar ? color_bar : na, display=display.none)
+barcolor(show_color_bar ? color_bar : na)
 up_channel = plot(show_Baseline ? upperk : na, color=color_bar, title="Baseline Upper Channel", display=display.none)
 low_channel = plot(show_Baseline ? lowerk : na, color=color_bar, title="Basiline Lower Channel", display=display.none)
-fill(up_channel, low_channel, color=color.new(color_bar, 90), display=display.none)
+fill(up_channel, low_channel, color=color.new(color_bar, 90))
 
 // SSL2
 LongPlot = plot(sslDown2, title="SSL2", linewidth=2, color=#8e6f42, style=plot.style_circles, display=display.none)
@@ -270,14 +271,33 @@ plot(show_sma7 ? sma7 : na, title="SMA 7", color=sma7_color, linewidth=1, displa
 show_sma20 = input.bool(true, title="Show SMA 20", group=group_sma)
 sma20_color = input.color(color.rgb(38, 68, 204), title="SMA 20 Color", group=group_sma)
 sma20 = ta.sma(close, 20)
-plot(show_sma20 ? sma20 : na, title="SMA 20", color=sma20_color, linewidth=1)
+plot(show_sma20 ? sma20 : na, title="SMA 20", color=sma20_color, linewidth=1, display=display.pane)
 
 show_sma50 = input.bool(true, title="Show SMA 50", group=group_sma)
 sma50_color = input.color(#e8a94b, title="SMA 50 Color", group=group_sma)
 sma50 = ta.sma(close, 50)
-plot(show_sma50 ? sma50 : na, title="SMA 50", color=sma50_color, linewidth=1)
+plot(show_sma50 ? sma50 : na, title="SMA 50", color=sma50_color, linewidth=1, display=display.pane)
 
 show_sma200 = input.bool(true, title="Show SMA 200", group=group_sma)
 sma200_color = input.color(#ff9800, title="SMA 200 Color", group=group_sma)
 sma200 = ta.sma(close, 200)
-plot(show_sma200 ? sma200 : na, title="SMA 200", color=sma200_color, linewidth=2)
+plot(show_sma200 ? sma200 : na, title="SMA 200", color=sma200_color, linewidth=2, display=display.pane)
+
+// ==== Bollinger Bands ====
+group_bb = "Bollinger Bands"
+show_bb = input.bool(false, title="Show Bollinger Bands", group=group_bb)
+bb_length = input.int(20, title="BB Length", group=group_bb)
+bb_mult = input.float(2.0, title="BB Multiplier", step=0.1, group=group_bb)
+bb_color = input.color(color.rgb(120, 144, 156), title="BB Color", group=group_bb)
+
+bb_basis = ta.sma(close, bb_length)
+bb_dev = bb_mult * ta.stdev(close, bb_length)
+bb_upper = bb_basis + bb_dev
+bb_lower = bb_basis - bb_dev
+
+p_bb_basis = plot(show_bb ? bb_basis : na, title="BB Basis", color=bb_color, linewidth=1, display=display.pane)
+p_bb_upper = plot(show_bb ? bb_upper : na, title="BB Upper", color=bb_color, linewidth=1, display=display.pane)
+p_bb_lower = plot(show_bb ? bb_lower : na, title="BB Lower", color=bb_color, linewidth=1, display=display.pane)
+
+fill(p_bb_upper, p_bb_lower, color=color.new(bb_color, 90))
+
