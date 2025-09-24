@@ -1,16 +1,17 @@
 //@version=6
-indicator("SSL Hybrid", overlay=true)
+indicator("SSL Hybrid + SMA 20/50/200", overlay=true)
 
-// Input parameters
+// ==== Inputok ====
 show_Baseline = input.bool(true, title="Show Baseline")
 show_SSL1 = input.bool(false, title="Show SSL1")
 show_atr = input.bool(false, title="Show ATR bands")
 //ATR
-atrlen = input.int(14, "ATR Period")
-mult = input.float(1, "ATR Multi", step=0.1)
-smoothing = input.string("WMA", title="ATR Smoothing", options=["RMA", "SMA", "EMA", "WMA"])
+atrlen = input.int(14, "ATR Period", display=display.none)
+mult = input.float(1, "ATR Multi", step=0.1, display=display.none)
+smoothing = input.string("WMA", title="ATR Smoothing", options=["RMA", "SMA", "EMA", "WMA"], display=display.none)
 
-ma_function(source, atrlen) => 
+// ATR számítás
+ma_function(source, atrlen) =>
     if smoothing == "RMA"
         ta.rma(source, atrlen)
     else if smoothing == "SMA"
@@ -21,42 +22,36 @@ ma_function(source, atrlen) =>
         ta.wma(source, atrlen)
 
 atr_slen = ma_function(ta.tr(true), atrlen)
-////ATR Up/Low Bands
 upper_band = atr_slen * mult + close
 lower_band = close - atr_slen * mult
 
-////BASELINE / SSL1 / SSL2 / EXIT MOVING AVERAGE VALUES
-maType = input.string("HMA", title="SSL1 / Baseline Type", options=["SMA","EMA","DEMA","TEMA","LSMA","WMA","MF","VAMA","TMA","HMA", "JMA", "Kijun v2", "EDSMA","McGinley"])
-len = input.int(25, title="SSL1 / Baseline Length")
+// ---- MA típus választó ----
+maType = input.string("HMA", title="SSL1 / Baseline Type", options=["SMA","EMA","DEMA","TEMA","LSMA","WMA","MF","VAMA","TMA","HMA", "JMA", "Kijun v2", "EDSMA","McGinley"],display=display.none)
+len = input.int(25, title="SSL1 / Baseline Length", display=display.none)
 
-SSL2Type = input.string("JMA", title="SSL2 / Continuation Type", options=["SMA","EMA","DEMA","TEMA","WMA","MF","VAMA","TMA","HMA", "JMA","McGinley"])
-len2 = input.int(5, title="SSL 2 Length")
-//
-SSL3Type = input.string("HMA", title="EXIT Type", options=["DEMA","TEMA","LSMA","VAMA","TMA","HMA","JMA", "Kijun v2", "McGinley", "MF"])
-len3 = input.int(15, title="EXIT Length")
-src = input.source(close, title="Source")
+SSL2Type = input.string("JMA", title="SSL2 / Continuation Type", options=["SMA","EMA","DEMA","TEMA","WMA","MF","VAMA","TMA","HMA", "JMA","McGinley"], display=display.none)
+len2 = input.int(5, title="SSL 2 Length", display=display.none)
 
-//
+SSL3Type = input.string("HMA", title="EXIT Type", options=["DEMA","TEMA","LSMA","VAMA","TMA","HMA","JMA", "Kijun v2", "McGinley", "MF"], display=display.none)
+len3 = input.int(15, title="EXIT Length", display=display.none)
+src = input.source(close, title="Source", display=display.none)
+
+// ---- MA függvény (rövidítve nem módosítom, teljes kód marad) ----
 tema(src, len) =>
     ema1 = ta.ema(src, len)
     ema2 = ta.ema(ema1, len)
     ema3 = ta.ema(ema2, len)
     (3 * ema1) - (3 * ema2) + ema3
 
-kidiv = input.float(1, title="Kijun MOD Divider", maxval=4)
-
-jurik_phase = input.int(3, title="* Jurik (JMA) Only - Phase")
-jurik_power = input.int(1, title="* Jurik (JMA) Only - Power")
-volatility_lookback = input.int(10, title="* Volatility Adjusted (VAMA) Only - Volatility lookback length")
-//MF
-beta = input.float(0.8, title="Modular Filter, General Filter Only - Beta", minval=0, maxval=1, step=0.1)
-feedback = input.bool(false, title="Modular Filter Only - Feedback")
-z = input.float(0.5, title="Modular Filter Only - Feedback Weighting", step=0.1, minval=0, maxval=1)
-//EDSMA
-ssfLength = input.int(20, title="EDSMA - Super Smoother Filter Length", minval=1)
-ssfPoles = input.int(2, title="EDSMA - Super Smoother Filter Poles", options=[2, 3])
-
-//----
+kidiv = input.float(1, title="Kijun MOD Divider", maxval=4, display=display.none)
+jurik_phase = input.int(3, title="* Jurik (JMA) Only - Phase", display=display.none)
+jurik_power = input.int(1, title="* Jurik (JMA) Only - Power", display=display.none)
+volatility_lookback = input.int(10, title="* Volatility Adjusted (VAMA) Only - Volatility lookback length", display=display.none)
+beta = input.float(0.8, title="Modular Filter Beta", minval=0, maxval=1, step=0.1, display=display.none)
+feedback = input.bool(false, title="Modular Filter Feedback", display=display.none)
+z = input.float(0.5, title="MF Feedback Weighting", step=0.1, minval=0, maxval=1, display=display.none)
+ssfLength = input.int(20, title="EDSMA Filter Length", minval=1, display=display.none)
+ssfPoles = input.int(2, title="EDSMA Poles", options=[2, 3], display=display.none)
 
 //EDSMA
 get2PoleSSF(src, length) =>
@@ -178,29 +173,26 @@ ma(type, src, len) =>
         edsma := alpha * src + (1 - alpha) * nz(edsma[1])
         result := edsma
     result
-    
+
 ///SSL 1 and SSL2
 emaHigh = ma(maType, high, len)
 emaLow = ma(maType, low, len)
-
 maHigh = ma(SSL2Type, high, len2)
 maLow = ma(SSL2Type, low, len2)
-
-///EXIT
 ExitHigh = ma(SSL3Type, high, len3)
 ExitLow = ma(SSL3Type, low, len3)
 
-///Keltner Baseline Channel
+///Keltner Baseline
 BBMC = ma(maType, close, len)
 useTrueRange = input.bool(true)
-multy = input.float(0.2, title="Base Channel Multiplier", step=0.05)
+multy = input.float(0.2, title="Base Channel Multiplier", step=0.05, display=display.none)
 Keltma = ma(maType, src, len)
 range_T = useTrueRange ? ta.tr : high - low
 rangema = ta.ema(range_T, len)
 upperk = Keltma + rangema * multy
 lowerk = Keltma - rangema * multy
 
-//Baseline Violation Candle
+// Baseline Violation
 open_pos = open*1
 close_pos = close*1
 difference = math.abs(close_pos-open_pos)
@@ -209,12 +201,12 @@ InRange = upper_band > BBMC and lower_band < BBMC
 candlesize_violation = atr_violation and InRange
 plotshape(candlesize_violation, color=color.white, size=size.tiny, style=shape.diamond, location=location.top, title="Candle Size > 1xATR")
 
-//SSL1 VALUES
+// SSL1
 var int Hlv = na
 Hlv := close > emaHigh ? 1 : close < emaLow ? -1 : Hlv[1]
 sslDown = Hlv < 0 ? emaHigh : emaLow
 
-//SSL2 VALUES
+// SSL2
 var int Hlv2 = na
 Hlv2 := close > maHigh ? 1 : close < maLow ? -1 : Hlv2[1]
 sslDown2 = Hlv2 < 0 ? maHigh : maLow
@@ -224,7 +216,7 @@ show_color_bar = input.bool(false, title="Color Bars")
 color_bar = close > upperk ? #00c3ff : close < lowerk ? #ff0062 : color.gray
 color_ssl1 = close > sslDown ? #00c3ff : close < sslDown ? #ff0062 : na
 
-//EXIT VALUES
+// EXIT
 var int Hlv3 = na
 Hlv3 := close > ExitHigh ? 1 : close < ExitLow ? -1 : Hlv3[1]
 sslExit = Hlv3 < 0 ? ExitHigh : ExitLow
@@ -234,10 +226,9 @@ base_cross_Long = ta.crossover(close, sslExit) and is_bullish_baseline
 base_cross_Short = ta.crossover(sslExit, close) and is_bearish_baseline
 codiff = base_cross_Long ? 1 : base_cross_Short ? -1 : na
 
-// SL értékek kiszámítása és megjelenítése long és short nyilaknál
+// SL értékek
 sl_value_long = close - atr_slen
 sl_value_short = close + atr_slen
-
 var label sl_label_long = na
 var label sl_label_short = na
 
@@ -247,243 +238,46 @@ if base_cross_Long
 if base_cross_Short
     sl_label_short := label.new(x=bar_index, y=high + atr_slen * 0.5, text="SL: " + str.tostring(sl_value_short, "#.####"), style=label.style_label_down, color=color.red, textcolor=color.white, size=size.small)
 
-//PLOTS
+// ==== PLOTS ====
+
 plotarrow(codiff, colorup=#00c3ff, colordown=#ff0062, title="Exit Arrows", maxheight=20, offset=0)
+
 p1 = plot(show_Baseline ? BBMC : na, color=color_bar, linewidth=4, title='MA Baseline')
-DownPlot = plot(show_SSL1 ? sslDown : na, title="SSL1", linewidth=3, color=color.new(color_ssl1, 10))
-barcolor(show_color_bar ? color_bar : na)
-up_channel = plot(show_Baseline ? upperk : na, color=color_bar, title="Baseline Upper Channel")
-low_channel = plot(show_Baseline ? lowerk : na, color=color_bar, title="Basiline Lower Channel")
-fill(up_channel, low_channel, color=color.new(color_bar, 90))
+DownPlot = plot(show_SSL1 ? sslDown : na, title="SSL1", linewidth=3, color=color.new(color_ssl1, 10), display=display.none)
+barcolor(show_color_bar ? color_bar : na, display=display.none)
+up_channel = plot(show_Baseline ? upperk : na, color=color_bar, title="Baseline Upper Channel", display=display.none)
+low_channel = plot(show_Baseline ? lowerk : na, color=color_bar, title="Basiline Lower Channel", display=display.none)
+fill(up_channel, low_channel, color=color.new(color_bar, 90), display=display.none)
 
-////SSL2 Continiuation from ATR
-atr_crit = input.float(0.9, title="Continuation ATR Criteria", step=0.1)
-upper_half = atr_slen * atr_crit + close
-lower_half = close - atr_slen * atr_crit
-buy_inatr = lower_half < sslDown2
-sell_inatr = upper_half > sslDown2
-sell_cont = close < BBMC and close < sslDown2
-buy_cont = close > BBMC and close > sslDown2
-sell_atr = sell_inatr and sell_cont
-buy_atr = buy_inatr and buy_cont
-atr_fill = buy_atr ? color.green : sell_atr ? color.purple : color.white
-LongPlot = plot(sslDown2, title="SSL2", linewidth=2, color=atr_fill, style=plot.style_circles)
-u = plot(show_atr ? upper_band : na, "+ATR", color=color.new(color.white, 80))
-l = plot(show_atr ? lower_band : na, "-ATR", color=color.new(color.white, 80))
+// SSL2
+LongPlot = plot(sslDown2, title="SSL2", linewidth=2, color=#8e6f42, style=plot.style_circles, display=display.none)
 
-//ALERTS
-alertcondition(ta.crossover(close, sslDown), title='SSL Cross Alert', message='SSL1 has crossed.')
-alertcondition(ta.crossover(close, sslDown2), title='SSL2 Cross Alert', message='SSL2 has crossed.')
-alertcondition(sell_atr, title='Sell Continuation', message='Sell Continuation.')
-alertcondition(buy_atr, title='Buy Continuation', message='Buy Continuation.')
-alertcondition(ta.crossover(close, sslExit), title='Exit Sell', message='Exit Sell Alert.')
-alertcondition(ta.crossover(sslExit, close), title='Exit Buy', message='Exit Buy Alert.')
-alertcondition(ta.crossover(close, upperk), title='Baseline Buy Entry', message='Base Buy Alert.')
-alertcondition(ta.crossover(lowerk, close), title='Baseline Sell Entry', message='Base Sell Alert.')
+// ATR bands
+u = plot(show_atr ? upper_band : na, "+ATR", color=color.new(color.white, 80), display=display.none)
+l = plot(show_atr ? lower_band : na, "-ATR", color=color.new(color.white, 80), display=display.none)
 
 
-//Table part
-// Időkeretek definíciója
-var timeframe5 = "5"
-var timeframe15 = "15"
-var timeframe30 = "30"
-var timeframe1h = "60"
-var timeframe4h = "240"
-var timeframe1d = "D"
 
-// Indikátor paraméterek
-rsiLength = input.int(14, "RSI Periódus", minval=1)
-macdFast = input.int(12, "MACD Gyors", minval=1)
-macdSlow = input.int(26, "MACD Lassú", minval=1)
-macdSignal = input.int(9, "MACD Jelzés", minval=1)
-adxLength = input.int(14, "ADX Periódus", minval=1)
+// ==== SMA-k ====
+group_sma = "Simple Moving Averages"
 
-// RSI számítása különböző időkeretekben
-rsi5 = request.security(syminfo.tickerid, timeframe5, ta.rsi(close, rsiLength))
-rsi15 = request.security(syminfo.tickerid, timeframe15, ta.rsi(close, rsiLength))
-rsi30 = request.security(syminfo.tickerid, timeframe30, ta.rsi(close, rsiLength))
-rsi1h = request.security(syminfo.tickerid, timeframe1h, ta.rsi(close, rsiLength))
-rsi4h = request.security(syminfo.tickerid, timeframe4h, ta.rsi(close, rsiLength))
-rsi1d = request.security(syminfo.tickerid, timeframe1d, ta.rsi(close, rsiLength))
+// SMA 7
+show_sma7 = input.bool(true, title="Show SMA 7", group= group_sma)
+sma7_color = input.color(color.rgb(138, 144, 167), title="SMA 7 Color", group=group_sma)
+sma7 = ta.sma(close, 7)
+plot(show_sma7 ? sma7 : na, title="SMA 7", color=sma7_color, linewidth=1, display=display.none)
 
-// MACD számítása különböző időkeretekben
-[macd5, signal5, hist5] = request.security(syminfo.tickerid, timeframe5, ta.macd(close, macdFast, macdSlow, macdSignal))
-[macd15, signal15, hist15] = request.security(syminfo.tickerid, timeframe15, ta.macd(close, macdFast, macdSlow, macdSignal))
-[macd30, signal30, hist30] = request.security(syminfo.tickerid, timeframe30, ta.macd(close, macdFast, macdSlow, macdSignal))
-[macd1h, signal1h, hist1h] = request.security(syminfo.tickerid, timeframe1h, ta.macd(close, macdFast, macdSlow, macdSignal))
-[macd4h, signal4h, hist4h] = request.security(syminfo.tickerid, timeframe4h, ta.macd(close, macdFast, macdSlow, macdSignal))
-[macd1d, signal1d, hist1d] = request.security(syminfo.tickerid, timeframe1d, ta.macd(close, macdFast, macdSlow, macdSignal))
+show_sma20 = input.bool(true, title="Show SMA 20", group=group_sma)
+sma20_color = input.color(color.rgb(38, 68, 204), title="SMA 20 Color", group=group_sma)
+sma20 = ta.sma(close, 20)
+plot(show_sma20 ? sma20 : na, title="SMA 20", color=sma20_color, linewidth=1)
 
-// ADX számítása különböző időkeretekben
-getDMI(len) =>
-    [diplus, diminus, adx] = ta.dmi(len, len)
-    adx
+show_sma50 = input.bool(true, title="Show SMA 50", group=group_sma)
+sma50_color = input.color(#e8a94b, title="SMA 50 Color", group=group_sma)
+sma50 = ta.sma(close, 50)
+plot(show_sma50 ? sma50 : na, title="SMA 50", color=sma50_color, linewidth=1)
 
-adx5 = request.security(syminfo.tickerid, timeframe5, getDMI(adxLength))
-adx15 = request.security(syminfo.tickerid, timeframe15, getDMI(adxLength))
-adx30 = request.security(syminfo.tickerid, timeframe30, getDMI(adxLength))
-adx1h = request.security(syminfo.tickerid, timeframe1h, getDMI(adxLength))
-adx4h = request.security(syminfo.tickerid, timeframe4h, getDMI(adxLength))
-adx1d = request.security(syminfo.tickerid, timeframe1d, getDMI(adxLength))
-
-// Stochastic RSI számítása különböző időkeretekben
-stochRsi(src, length) =>
-    rsiValue = ta.rsi(src, length)
-    lowest = ta.lowest(rsiValue, length)
-    highest = ta.highest(rsiValue, length)
-    (rsiValue - lowest) / (highest - lowest) * 100
-
-stochRsi5 = request.security(syminfo.tickerid, timeframe5, stochRsi(close, rsiLength))
-stochRsi15 = request.security(syminfo.tickerid, timeframe15, stochRsi(close, rsiLength))
-stochRsi30 = request.security(syminfo.tickerid, timeframe30, stochRsi(close, rsiLength))
-stochRsi1h = request.security(syminfo.tickerid, timeframe1h, stochRsi(close, rsiLength))
-stochRsi4h = request.security(syminfo.tickerid, timeframe4h, stochRsi(close, rsiLength))
-stochRsi1d = request.security(syminfo.tickerid, timeframe1d, stochRsi(close, rsiLength))
-
-// Színek beállítása
-var color bullColor = color.green
-var color bearColor = color.red
-var color neutralColor = color.gray
-var color tableBackgroundColor = color.new(color.black, 70)
-var color tableBorderColor = color.new(color.white, 50)
-var color tableHeaderColor = color.new(color.blue, 70)
-
-// RSI szín meghatározása az érték alapján
-rsiColor(rsiValue) =>
-    rsiValue >= 70 ? bearColor : rsiValue <= 30 ? bullColor : neutralColor
-
-// MACD szín meghatározása az érték alapján
-macdColor(macdValue, signalValue) =>
-    macdValue > signalValue ? bullColor : macdValue < signalValue ? bearColor : neutralColor
-
-// ADX szín meghatározása az érték alapján (30 felett erős trend)
-adxColor(adxValue) =>
-    adxValue >= 30 ? bullColor : adxValue >= 20 ? color.orange : neutralColor
-
-// Stochastic RSI szín meghatározása az érték alapján
-stochRsiColor(stochRsiValue) =>
-    stochRsiValue >= 80 ? bearColor : stochRsiValue <= 20 ? bullColor : neutralColor
-
-// Tábla pozíció
-tablePosition = input.string("bottom_right", "Tábla pozíció", options=["top_left", "top_right", "bottom_left", "bottom_right", "middle_left", "middle_right"])
-
-// Tábla létrehozása
-var table indTable = table.new(position = tablePosition, columns = 7, rows = 5, bgcolor = tableBackgroundColor, border_width = 1, border_color = tableBorderColor)
-
-// Tábla frissítése minden tick esetén
-if barstate.islast
-    // Fejléc beállítása
-    table.cell(indTable, 0, 0, "Indikátor", bgcolor = tableHeaderColor, text_color = color.white)
-    table.cell(indTable, 1, 0, "5m", bgcolor = tableHeaderColor, text_color = color.white)
-    table.cell(indTable, 2, 0, "15m", bgcolor = tableHeaderColor, text_color = color.white)
-    table.cell(indTable, 3, 0, "30m", bgcolor = tableHeaderColor, text_color = color.white)
-    table.cell(indTable, 4, 0, "1h", bgcolor = tableHeaderColor, text_color = color.white)
-    table.cell(indTable, 5, 0, "4h", bgcolor = tableHeaderColor, text_color = color.white)
-    table.cell(indTable, 6, 0, "1d", bgcolor = tableHeaderColor, text_color = color.white)
-    
-    // RSI értékek
-    table.cell(indTable, 0, 1, "RSI (0-100)", text_color = color.white)
-    table.cell(indTable, 1, 1, str.tostring(math.round(rsi5, 1)), text_color = rsiColor(rsi5))
-    table.cell(indTable, 2, 1, str.tostring(math.round(rsi15, 1)), text_color = rsiColor(rsi15))
-    table.cell(indTable, 3, 1, str.tostring(math.round(rsi30, 1)), text_color = rsiColor(rsi30))
-    table.cell(indTable, 4, 1, str.tostring(math.round(rsi1h, 1)), text_color = rsiColor(rsi1h))
-    table.cell(indTable, 5, 1, str.tostring(math.round(rsi4h, 1)), text_color = rsiColor(rsi4h))
-    table.cell(indTable, 6, 1, str.tostring(math.round(rsi1d, 1)), text_color = rsiColor(rsi1d))
-    
-    // Stochastic RSI értékek
-    table.cell(indTable, 0, 2, "Stoch RSI (0-100)", text_color = color.white)
-    table.cell(indTable, 1, 2, str.tostring(math.round(stochRsi5, 1)), text_color = stochRsiColor(stochRsi5))
-    table.cell(indTable, 2, 2, str.tostring(math.round(stochRsi15, 1)), text_color = stochRsiColor(stochRsi15))
-    table.cell(indTable, 3, 2, str.tostring(math.round(stochRsi30, 1)), text_color = stochRsiColor(stochRsi30))
-    table.cell(indTable, 4, 2, str.tostring(math.round(stochRsi1h, 1)), text_color = stochRsiColor(stochRsi1h))
-    table.cell(indTable, 5, 2, str.tostring(math.round(stochRsi4h, 1)), text_color = stochRsiColor(stochRsi4h))
-    table.cell(indTable, 6, 2, str.tostring(math.round(stochRsi1d, 1)), text_color = stochRsiColor(stochRsi1d))
-    
-    // MACD értékek
-    table.cell(indTable, 0, 3, "MACD (-∞ to ∞)", text_color = color.white)
-    table.cell(indTable, 1, 3, str.tostring(math.round(macd5, 3)), text_color = macdColor(macd5, signal5))
-    table.cell(indTable, 2, 3, str.tostring(math.round(macd15, 3)), text_color = macdColor(macd15, signal15))
-    table.cell(indTable, 3, 3, str.tostring(math.round(macd30, 3)), text_color = macdColor(macd30, signal30))
-    table.cell(indTable, 4, 3, str.tostring(math.round(macd1h, 3)), text_color = macdColor(macd1h, signal1h))
-    table.cell(indTable, 5, 3, str.tostring(math.round(macd4h, 3)), text_color = macdColor(macd4h, signal4h))
-    table.cell(indTable, 6, 3, str.tostring(math.round(macd1d, 3)), text_color = macdColor(macd1d, signal1d))
-    
-    // ADX értékek
-    table.cell(indTable, 0, 4, "ADX (0-100+)", text_color = color.white)
-    table.cell(indTable, 1, 4, str.tostring(math.round(adx5, 1)), text_color = adxColor(adx5))
-    table.cell(indTable, 2, 4, str.tostring(math.round(adx15, 1)), text_color = adxColor(adx15))
-    table.cell(indTable, 3, 4, str.tostring(math.round(adx30, 1)), text_color = adxColor(adx30))
-    table.cell(indTable, 4, 4, str.tostring(math.round(adx1h, 1)), text_color = adxColor(adx1h))
-    table.cell(indTable, 5, 4, str.tostring(math.round(adx4h, 1)), text_color = adxColor(adx4h))
-    table.cell(indTable, 6, 4, str.tostring(math.round(adx1d, 1)), text_color = adxColor(adx1d))
-
-//Signal Table
-// --- Funkció: Adatok lekérése adott időtávon ---
-getData(tf) =>
-    ema20 = request.security(syminfo.tickerid, tf, ta.ema(close, 20))
-    ema50 = request.security(syminfo.tickerid, tf, ta.ema(close, 50))
-    rsiVal = request.security(syminfo.tickerid, tf, ta.rsi(close, 14))
-    
-    // Helyes ADX lekérése ta.dmi() segítségével
-    [plusDI, minusDI, adxVal] = request.security(syminfo.tickerid, tf, ta.dmi(14, 14))
-
-    trend = ema20 > ema50 ? "Bullish" : ema20 < ema50 ? "Bearish" : "Neutral"
-    rsiState = rsiVal > 70 ? "Overbought" : rsiVal < 30 ? "Oversold" : "Normal"
-    [trend, rsiState, adxVal]
-
-// --- Időablakok és címkék tömbként ---
-var string[] tfs = array.new_string()
-var string[] labels = array.new_string()
-
-if bar_index == 0
-    array.push(tfs, "5")
-    array.push(tfs, "15")
-    array.push(tfs, "30")
-    array.push(tfs, "60")
-    array.push(tfs, "240")
-    array.push(tfs, "D")
-
-    array.push(labels, "5m")
-    array.push(labels, "15m")
-    array.push(labels, "30m")
-    array.push(labels, "1h")
-    array.push(labels, "4h")
-    array.push(labels, "1d")
-
-// --- Táblázat létrehozása ---
-var table t = table.new(position.top_right, 5, 7, border_width = 1)
-
-if bar_index == 0
-    table.cell(t, 0, 0, "TF", text_color=color.white, bgcolor=color.gray)
-    table.cell(t, 1, 0, "Trend", text_color=color.white, bgcolor=color.gray)
-    table.cell(t, 2, 0, "RSI", text_color=color.white, bgcolor=color.gray)
-    table.cell(t, 3, 0, "ADX", text_color=color.white, bgcolor=color.gray)
-    table.cell(t, 4, 0, "Signal", text_color=color.white, bgcolor=color.gray)
-
-// --- Feltöltés ciklusban ---
-var int strongTrendCount = 0
-strongTrendCount := 0
-
-for i = 0 to array.size(tfs) - 1
-    tf = array.get(tfs, i)
-    label = array.get(labels, i)
-
-    [trend, rsiState, adx] = getData(tf)
-
-    trendColor = trend == "Bullish" ? color.green : trend == "Bearish" ? color.red : color.gray
-    rsiColor = rsiState == "Overbought" ? color.orange : rsiState == "Oversold" ? color.teal : color.gray
-    adxColor = adx >= 40 ? color.green : adx >= 20 ? color.orange : color.red
-
-    signal = (trend == "Bullish" and adx >= 25) ? "▲ Buy" :
-             (trend == "Bearish" and adx >= 25) ? "▼ Sell" : ""
-
-    if signal != ""
-        strongTrendCount += 1
-
-    table.cell(t, 0, i + 1, label, text_color=color.white)
-    table.cell(t, 1, i + 1, trend, text_color=trendColor)
-    table.cell(t, 2, i + 1, rsiState, text_color=rsiColor)
-    table.cell(t, 3, i + 1, str.tostring(adx, "#.##"), text_color=adxColor)
-    table.cell(t, 4, i + 1, signal, text_color=color.white)
-
-
+show_sma200 = input.bool(true, title="Show SMA 200", group=group_sma)
+sma200_color = input.color(#ff9800, title="SMA 200 Color", group=group_sma)
+sma200 = ta.sma(close, 200)
+plot(show_sma200 ? sma200 : na, title="SMA 200", color=sma200_color, linewidth=2)
