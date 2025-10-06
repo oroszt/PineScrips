@@ -1,0 +1,80 @@
+//@version=5
+//dev by oroszt 
+indicator("Scalper Indicator TF5 Optimized", shorttitle="SI TF5", overlay=true)
+
+// === ALAP BEÁLLÍTÁSOK ===
+emaFast = ta.ema(close, 5)     // gyors trend
+emaMid  = ta.ema(close, 13)    // közép trend
+emaSlow = ta.ema(close, 34)    // lassabb trend
+emaLong = ta.ema(close, 55)    // irány megerősítés
+
+plot(emaFast, color=color.new(color.white, 0), title="EMA 5", linewidth=2)
+plot(emaMid,  color=color.new(color.red, 0),   title="EMA 13", linewidth=2)
+plot(emaSlow, color=color.new(color.green, 0), title="EMA 34", linewidth=2)
+plot(emaLong, color=color.new(color.blue, 0),  title="EMA 55", linewidth=1)
+
+// === RSI (gyors, érzékeny) ===
+rsiLen = input.int(7, "RSI Length")
+rsi = ta.rsi(close, rsiLen)
+rsiOB = 70
+rsiOS = 30
+
+plotshape(rsi < rsiOS, title="RSI Oversold", style=shape.circle, color=color.new(color.green, 0), location=location.bottom, size=size.tiny)
+plotshape(rsi > rsiOB, title="RSI Overbought", style=shape.square, color=color.new(color.red, 0), location=location.top, size=size.tiny)
+
+// === CCI (gyorsabb TF5-re) ===
+cciLen = input.int(10, "CCI Length")
+cci = ta.cci(close, cciLen)
+plotshape(cci < -100, title="CCI Oversold", style=shape.circle, color=color.new(color.lime, 0), location=location.bottom, size=size.tiny)
+plotshape(cci > 100, title="CCI Overbought", style=shape.square, color=color.new(color.orange, 0), location=location.top, size=size.tiny)
+
+// === ATR pozíciókhoz ===
+atrVal = ta.atr(14)
+patternLabelPosLow = low - (atrVal * 0.3)
+patternLabelPosHigh = high + (atrVal * 0.3)
+
+// === MACD gyors beállítások ===
+fastLength = input.int(5, "MACD Fast Length")
+slowLength = input.int(13, "MACD Slow Length")
+signalLength = input.int(5, "MACD Signal Length")
+
+macdFast = ta.ema(close, fastLength)
+macdSlow = ta.ema(close, slowLength)
+macdLine = macdFast - macdSlow
+macdSignal = ta.sma(macdLine, signalLength)
+
+plotshape(ta.crossover(macdLine, macdSignal), title="MACD Buy", style=shape.triangleup, color=color.new(color.aqua, 0), location=location.belowbar, size=size.tiny)
+plotshape(ta.crossunder(macdLine, macdSignal), title="MACD Sell", style=shape.triangledown, color=color.new(color.red, 0), location=location.abovebar, size=size.tiny)
+
+// === KOMBINÁLT BUY/SELL JELZÉSEK ===
+bullSignal = ta.crossover(emaFast, emaMid) and rsi < 70 and cci > -100
+bearSignal = ta.crossunder(emaFast, emaMid) and rsi > 30 and cci < 100
+
+plotshape(bullSignal, title="Buy Signal", style=shape.labelup, color=color.new(color.green, 0), text="BUY", textcolor=color.white, location=location.belowbar, size=size.small)
+plotshape(bearSignal, title="Sell Signal", style=shape.labeldown, color=color.new(color.red, 0), text="SELL", textcolor=color.white, location=location.abovebar, size=size.small)
+
+alertcondition(bullSignal, title="TF5 Buy Alert", message="Scalper TF5 Buy Signal")
+alertcondition(bearSignal, title="TF5 Sell Alert", message="Scalper TF5 Sell Signal")
+
+// === VFI egyszerűsített, rövidebb TF5 változat ===
+vfiLen = input.int(30, "VFI Length")
+vfiSignalLen = input.int(3, "VFI Signal Length")
+
+vfi_typical = hlc3
+vfi_inter = math.log(vfi_typical) - math.log(vfi_typical[1])
+vfi_vinter = ta.stdev(vfi_inter, 30)
+vfi_cutoff = 0.2 * vfi_vinter * close
+vfi_vave = ta.sma(volume, vfiLen)[1]
+vfi_vmax = vfi_vave * 2.5
+vfi_vc = volume < vfi_vmax ? volume : vfi_vmax
+vfi_mf = vfi_typical - vfi_typical[1]
+vfi_vcp = vfi_mf > vfi_cutoff ? vfi_vc : vfi_mf < -vfi_cutoff ? -vfi_vc : 0
+
+// Javított sor math.sum()-mal
+vfi_vfi = vfi_vave != 0 ? math.sum(vfi_vcp, vfiLen) / vfi_vave : na
+vfi_vfima = ta.ema(vfi_vfi, vfiSignalLen)
+
+plotshape(ta.crossover(vfi_vfi, vfi_vfima), title="VFI Buy", style=shape.triangleup, color=color.new(color.green, 0), location=location.belowbar, size=size.tiny)
+plotshape(ta.crossunder(vfi_vfi, vfi_vfima), title="VFI Sell", style=shape.triangledown, color=color.new(color.orange, 0), location=location.abovebar, size=size.tiny)
+// === Háttérszínezés trend szerint ===
+bgcolor(emaFast > emaLong ? color.new(color.green, 85) : color.new(color.red, 85))
