@@ -1,0 +1,27 @@
+//@version=5
+indicator("Golden&Dead Crosses - Top Icons", overlay=true)
+
+// SMA beállítások
+smaShortLength = 50
+smaLongLength  = 200
+
+sma50 = ta.sma(close, smaShortLength)
+sma200 = ta.sma(close, smaLongLength)
+
+// Crossok detektálása
+goldenCross = ta.crossover(sma50, sma200)
+deadCross   = ta.crossunder(sma50, sma200)
+
+// SMA-k rajzolása
+plot(sma50, color=color.yellow, title="SMA50", linewidth=1)
+plot(sma200, color=color.orange, title="SMA200", linewidth=2)
+
+// Felső sor koordináta (chart teteje)
+top = ta.highest(high, 200) * 1.02  // 2% a legmagasabb gyertya felett
+
+// Ikonok létrehozása label-lel a felső sorban
+if goldenCross
+    label.new(bar_index, top, "🧈", color=color.orange, style=label.style_label_down, textcolor=color.black, size=size.small)
+
+if deadCross
+    label.new(bar_index, top, "☠️", color=color.red, style=label.style_label_down, textcolor=color.black, size=size.small)
